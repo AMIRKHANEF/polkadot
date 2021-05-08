@@ -1,0 +1,16 @@
+{
+  "name": "billpolka",
+  "version": "1.0.0",
+  "description": "this is felan besar",
+  "main": "test.js",
+  "dependencies": {
+    "dotenv": "^9.0.0",
+    "mongoose": "^5.12.7"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "amir ef",
+  "license": "ISC"
+}
