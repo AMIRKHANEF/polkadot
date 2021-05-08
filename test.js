@@ -9,7 +9,7 @@ if (process.env.PARACHAIN_NAME === 'westend') {
         const provider = new WsProvider('wss://westend-rpc.polkadot.io');
         const api = await ApiPromise.create({ provider });
     
-        // Dot.createSenderAddr(network); // first uncomment this line to sender address create and and being save in database
+        // Dot.createSenderAddr(network); // first uncomment this line to create sender address and being save in database
         // const receiver = await Dot.createReceiverAddr(network); // when sender address created successfully comment above line and uncomment following lines
         // const senderPair = await Dot.getSenderInfo();
         // Dot.checkSenderInfo(api, senderPair.address);
