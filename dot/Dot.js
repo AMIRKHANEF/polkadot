@@ -29,17 +29,21 @@ module.exports = {
    * @notice create an address based on a random mnemonic
    * @param {String} _network the network name that address has created on
    * @param {bolean} _save Whether to being save in the database or not
-   * @returns an address or save to database
+   * @returns an address() or save to database
    */
-    async createAddr(_network, _save){
+    async createAddr(_network, _save, _Semail){
         try{
             const mnemonic = mnemonicGenerate();
+
             const Pair = keyring.addFromMnemonic(mnemonic);
-            console.log(` Address just created on ${_network}: ${Pair.address}!`);
-            if (_save){
-            this.saveSenderInfo(mnemonic, Pair.address);
+            if (_save && _Semail){
+                console.log(` Sender address just created on ${_network}: ${Pair.address}!`);
+                this.saveSenderInfo(mnemonic, Pair.address, _Semail);
             } else if (!_save){
+                console.log(` Receiver address just created on ${_network}: ${Pair.address}!`);
                 return Pair.address;
+            } else {
+                console.log('Something went wrong in creating account!!!');
             }
         } catch (error){
             console.log(` Error in "createAddr" section!!!\n ${error}`);
@@ -51,11 +55,12 @@ module.exports = {
      * @param {string} _mnemonic 
      * @param {string} _senderAddr 
      */
-    saveSenderInfo(_mnemonic, _senderAddr){
+    saveSenderInfo(_mnemonic, _senderAddr, _Semail){
         try{
 
             const wallet = new Wallet({
                 coinSymbol: 'WND',
+                email: _Semail,
                 address: _senderAddr,
                 mnemonic: _mnemonic,
                 creationTime: Date.now()
@@ -71,31 +76,34 @@ module.exports = {
      * find the senders informations from database and retrieve the pair from mnemonic
      * @returns sender pair
      */
-    async getSenderInfo(){
-        let result = await Wallet.find();
-        const sender = keyring.addFromMnemonic(result[0].mnemonic);
-        return sender;
+    async getSenderInfo(_email){
+        let result = await Wallet.find({ email: _email });
+        if (result){
+            const sender = keyring.addFromMnemonic(result[0].mnemonic);
+            return sender;
+        } else {
+            console.log('there isnt any record with this email address in database!!');
+        }
     },
 
     /**
      * 
      * Creates the transaction and checks that the sender has sufficient inventory
      */
-    async signTx(_api, _sender, _receiver){
+    async signTx(_api, _sender, _receiver, _network){
         try{
             const value = 10000000000;
             const tx = _api.tx.balances.transfer(_receiver, value);
             console.log('signing transaction!');
 
             const fee = await this.calculateFee(_api, tx, _sender);
-            let balance = await this.getBalanceOf(_api, _sender.address);
-
+            let balance = await this.getBalanceOf(_sender.address, _network);
             if (balance >= (fee + (value / wnd))){
                 const txHash = await tx.signAndSend(_sender, ({ status }) => {
                     console.log(` Current status is ${status.type}`);
-                    if(status.type == 'Finalized'){
-                        // this.checkInfo(_api, _sender.address, _receiver);
-                    }
+                    // if(status.type == 'Finalized'){
+                    //     this.checkInfo(_api, _sender.address, _receiver);
+                    // }
                 });
             } else {
                 console.log(' Not enough balance!!!');
@@ -138,7 +146,7 @@ module.exports = {
             const provider = getUrl(_network);
             const api = await ApiPromise.create({ provider });
             let { data: { free: Free }} = await api.query.system.account(_addr);
-            return Free / wnd;
+            return (Free / wnd);
         } catch(err) {
             console.log('error' + err);
         }
