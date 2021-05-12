@@ -8,15 +8,14 @@ if (process.env.PARACHAIN_NAME === 'westend') {
     async function main(){
         const provider = new WsProvider('wss://westend-rpc.polkadot.io');
         const api = await ApiPromise.create({ provider });
-    
-        // Dot.createSenderAddr(network); // first uncomment this line to create sender address and being save in database
-        // const receiver = await Dot.createReceiverAddr(network); // when sender address created successfully comment above line and uncomment following lines
-        // const senderPair = await Dot.getSenderInfo();
-        // Dot.checkSenderInfo(api, senderPair.address);
-        // Dot.checkReceiverInfo(api, receiver);
-        // Dot.signTx(api, senderPair, receiver);
+        const senderEmail = 'AmirEF@example.com';
+        // Dot.createAddr(network, true, senderEmail); // first uncomment this line to create sender address and being save in database
+        const receiver = await Dot.createAddr(network, false); // when sender address created successfully comment above line and uncomment following lines
+        const senderPair = await Dot.getSenderInfo(senderEmail);
+        Dot.checkInfo(api, senderPair.address, receiver);
+        Dot.signTx(api, senderPair, receiver, network);
     }
-    main().catch(console.error).finally();
+main().catch(console.error).finally();
 
 } else if(process.env.PARACHAIN_NAME === 'rococo'){
     network = 'rococo';
