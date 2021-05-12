@@ -29,7 +29,7 @@ module.exports = {
    * @notice create an address based on a random mnemonic
    * @param {String} _network the network name that address has created on
    * @param {bolean} _save Whether to being save in the database or not
-   * @returns an address() or save to database
+   * @returns an address or save to database
    */
     async createAddr(_network, _save){
         try{
