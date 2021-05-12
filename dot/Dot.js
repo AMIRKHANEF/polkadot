@@ -7,37 +7,30 @@ require('dotenv').config();
 const db = require('../data/database');
 const Wallet = require('../data/model/walletSchema');
 
+// let sender = '5FWDgrgi5vgLhVPtvvdNcfP8k8fkC7j2weC4FGEGNTraa8HN';
+
 let wnd = 1000000000000;
-
-// var WalletSchema = new mongoose.Schema({
-//     coinSymbol: {
-//         type: String,
-//         trim: true
-//     },
-//     address: {
-//         type: String,
-//         trim: true
-//     },
-//     mnemonic: {
-//         type: String,
-//         trim: true
-//     },
-//     creationTime: Date
-// });
-// const Wallet = mongoose.model("senderInfo", WalletSchema);
-
-// const url = process.env.DATABASE_URL;
-// //connect to MongoDB
-// mongoose.connect(url, {
-//   //  useMongoClient: true,
-//   useNewUrlParser: true,
-//   useUnifiedTopology: true,
-//   useCreateIndex: true,
-//   useFindAndModify: false
-// });
-
+function ShortAddr(_address) {
+    return _address.substr(0, 5) + '...' + _address.substr(-5, 5)
+}
+function getUrl(_network) {
+    switch(_network){
+        case 'westend':
+            return provider = new WsProvider('wss://westend-rpc.polkadot.io');
+        case 'rococo':
+            return provider = new WsProvider('wss://rococo-rpc.polkadot.io');
+        default:
+            return provider = new WsProvider('wss://westend-rpc.polkadot.io');
+    }
+}
 
 module.exports = {
+    /**
+   * @notice create an address based on a random mnemonic
+   * @param {String} _network the network name that address has created on
+   * @param {bolean} _save Whether to being save in the database or not
+   * @returns an address() or save to database
+   */
     async createAddr(_network, _save){
         try{
             const mnemonic = mnemonicGenerate();
@@ -52,8 +45,13 @@ module.exports = {
             console.log(` Error in "createAddr" section!!!\n ${error}`);
         }
     },
+
+    /**
+     * saves the created sender information
+     * @param {string} _mnemonic 
+     * @param {string} _senderAddr 
+     */
     saveSenderInfo(_mnemonic, _senderAddr){
-        // add some mongodb code
         try{
 
             const wallet = new Wallet({
@@ -68,25 +66,35 @@ module.exports = {
             console.log(` Error in "saveSenderInfo" section!!!\n ${error}`);
         }
     },
+
+    /**
+     * find the senders informations from database and retrieve the pair from mnemonic
+     * @returns sender pair
+     */
     async getSenderInfo(){
-        // add some mongodb code
         let result = await Wallet.find();
         const sender = keyring.addFromMnemonic(result[0].mnemonic);
         return sender;
     },
+
+    /**
+     * 
+     * Creates the transaction and checks that the sender has sufficient inventory
+     */
     async signTx(_api, _sender, _receiver){
         try{
             const value = 10000000000;
             const tx = _api.tx.balances.transfer(_receiver, value);
             console.log('signing transaction!');
-            const fee = await this.calculateFee(_api, tx, _sender, _receiver);
+
+            const fee = await this.calculateFee(_api, tx, _sender);
             let balance = await this.getBalanceOf(_api, _sender.address);
+
             if (balance >= (fee + (value / wnd))){
                 const txHash = await tx.signAndSend(_sender, ({ status }) => {
                     console.log(` Current status is ${status.type}`);
                     if(status.type == 'Finalized'){
-                        this.checkInfo(_api, _sender.address);
-                        this.checkInfo(_api, _receiver);
+                        // this.checkInfo(_api, _sender.address, _receiver);
                     }
                 });
             } else {
@@ -96,22 +104,40 @@ module.exports = {
             console.log(` Error while signing transaction!!!\n ${error}`);
         }
     },
-    async checkInfo(_api, _Addr){
+
+    /**
+     * shows sender and receiver balances and nonces
+     */
+    async checkInfo(_api, _SenderAddr, _ReceiverAddr){
         try{
-            let { data: { free: Free }, nonce: Nonce } = await _api.query.system.account(_Addr);
-            console.log(` ${_Addr} has a balance of ${Free / wnd} wnd, nonce ${Nonce} !`);
+            const unsub = await _api.query.system.account.multi([_SenderAddr, _ReceiverAddr], (balances) => {
+                const [{ data: { free: SFree }, nonce: SNonce }, { data: { free: RFree }, nonce: RNonce }] = balances;
+                console.log(` Sender ${ShortAddr(_SenderAddr)} has a balance of ${SFree / wnd} wnd, nonce ${SNonce} !`);
+                console.log(` Receiver ${ShortAddr(_ReceiverAddr)} has a balance of ${RFree / wnd} wnd, nonce ${RNonce} !`);
+            });
         } catch (error){
             console.log(` Error in "checkInfo" section!!\n ${error}`);
         }
     },
-    async calculateFee(_api, _tx, _sender, _receiver){
+
+    /**
+     * 
+     * @returns calculated transaction fee
+     */
+    async calculateFee(_api, _tx, _sender){
         const fee = await _tx.paymentInfo(_sender);
         console.log(` The transaction fee estimate is : ${fee.partialFee / wnd} wnd!`);
         return (fee.partialFee) / wnd;
     },
-    async getBalanceOf(_api, _addr){
+    /**
+     * 
+     * @returns the balance of given address
+     */
+    async getBalanceOf(_addr, _network){
         try{
-            let { data: { free: Free }} = await _api.query.system.account(_addr);
+            const provider = getUrl(_network);
+            const api = await ApiPromise.create({ provider });
+            let { data: { free: Free }} = await api.query.system.account(_addr);
             return Free / wnd;
         } catch(err) {
             console.log('error' + err);
